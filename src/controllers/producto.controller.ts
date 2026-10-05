@@ -24,7 +24,15 @@ export const listarProductos = async (req: Request, res: Response) => {
 
 export const buscarProducto = async (req: Request, res: Response) => {
     try {
-        const producto = await obtenerProductoPorId(req.params.id);
+        const { id } = req.params;
+
+        if (!/^\d+$/.test(id)) {
+            return res.status(400).json({
+                mensaje: "El ID debe ser un número"
+            });
+        }
+
+        const producto = await obtenerProductoPorId(id);
 
         if (!producto) {
             return res.status(404).json({
@@ -33,6 +41,7 @@ export const buscarProducto = async (req: Request, res: Response) => {
         }
 
         res.json(producto);
+
     } catch (error) {
         console.error(error);
 
@@ -46,6 +55,27 @@ export const registrarProducto = async (req: Request, res: Response) => {
     try {
         const { nombre, descripcion, precio, stock } = req.body;
 
+        // Validar nombre
+        if (!nombre || nombre.trim() === "") {
+            return res.status(400).json({
+                mensaje: "El nombre es obligatorio"
+            });
+        }
+
+        // Validar precio
+        if (precio === undefined || precio === null || precio < 0) {
+            return res.status(400).json({
+                mensaje: "El precio debe ser mayor o igual a 0"
+            });
+        }
+
+        // Validar stock
+        if (stock === undefined || stock === null || stock < 0) {
+            return res.status(400).json({
+                mensaje: "El stock debe ser mayor o igual a 0"
+            });
+        }
+
         const producto = await crearProducto(
             nombre,
             descripcion,
@@ -54,6 +84,7 @@ export const registrarProducto = async (req: Request, res: Response) => {
         );
 
         res.status(201).json(producto);
+
     } catch (error) {
         console.error(error);
 
@@ -66,7 +97,33 @@ export const registrarProducto = async (req: Request, res: Response) => {
 export const modificarProducto = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        if (!/^\d+$/.test(id)) {
+            return res.status(400).json({
+                mensaje: "El ID debe ser un número"
+            });
+        }        
         const { nombre, descripcion, precio, stock } = req.body;
+
+        // Validar nombre
+        if (!nombre || nombre.trim() === "") {
+            return res.status(400).json({
+                mensaje: "El nombre es obligatorio"
+            });
+        }
+
+        // Validar precio
+        if (precio === undefined || precio === null || precio < 0) {
+            return res.status(400).json({
+                mensaje: "El precio debe ser mayor o igual a 0"
+            });
+        }
+
+        // Validar stock
+        if (stock === undefined || stock === null || stock < 0) {
+            return res.status(400).json({
+                mensaje: "El stock debe ser mayor o igual a 0"
+            });
+        }
 
         const producto = await actualizarProducto(
             id,
@@ -83,6 +140,7 @@ export const modificarProducto = async (req: Request, res: Response) => {
         }
 
         res.json(producto);
+
     } catch (error) {
         console.error(error);
 
@@ -92,9 +150,18 @@ export const modificarProducto = async (req: Request, res: Response) => {
     }
 };
 
+
 export const borrarProducto = async (req: Request, res: Response) => {
     try {
-        const producto = await eliminarProducto(req.params.id);
+        const { id } = req.params;
+
+        if (!/^\d+$/.test(id)) {
+            return res.status(400).json({
+                mensaje: "El ID debe ser un número"
+            });
+        }
+
+        const producto = await eliminarProducto(id);
 
         if (!producto) {
             return res.status(404).json({
@@ -106,6 +173,7 @@ export const borrarProducto = async (req: Request, res: Response) => {
             mensaje: "Producto eliminado correctamente",
             producto
         });
+
     } catch (error) {
         console.error(error);
 
