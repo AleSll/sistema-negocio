@@ -9,7 +9,6 @@ import {
 // FUNCIONES AUXILIARES
 // ======================================================
 
-// Validar formato y existencia real de una fecha YYYY-MM-DD
 const fechaValida = (fecha: unknown): fecha is string => {
     if (
         typeof fecha !== "string" ||
@@ -33,7 +32,6 @@ const fechaValida = (fecha: unknown): fecha is string => {
 export const listar = async (req: Request, res: Response) => {
     try {
         const alquileres = await listarAlquileres();
-
         res.json(alquileres);
     } catch (error) {
         console.error(error);
@@ -95,21 +93,16 @@ export const crear = async (
         fecha_alquiler,
         fecha_devolucion,
         cantidad = 1,
-        precio_alquiler,
         deposito_garantia = 0,
         observacion = null
     } = req.body;
 
     const clienteId = Number(cliente_id);
     const productoId = Number(producto_id);
-    const precio = Number(precio_alquiler);
     const deposito = Number(deposito_garantia);
     const cantidadSolicitada = Number(cantidad);
 
-    // ------------------------------
     // Validar IDs
-    // ------------------------------
-
     if (
         !Number.isInteger(clienteId) ||
         clienteId <= 0 ||
@@ -123,10 +116,7 @@ export const crear = async (
         return;
     }
 
-    // ------------------------------
     // Validar cantidad
-    // ------------------------------
-
     if (
         !Number.isInteger(cantidadSolicitada) ||
         cantidadSolicitada <= 0
@@ -138,10 +128,7 @@ export const crear = async (
         return;
     }
 
-    // ------------------------------
     // Validar fechas
-    // ------------------------------
-
     if (
         !fechaValida(fecha_alquiler) ||
         !fechaValida(fecha_devolucion) ||
@@ -154,27 +141,19 @@ export const crear = async (
         return;
     }
 
-    // ------------------------------
-    // Validar precio y depósito
-    // ------------------------------
-
+    // Validar depósito
     if (
-        !Number.isFinite(precio) ||
-        precio < 0 ||
         !Number.isFinite(deposito) ||
         deposito < 0
     ) {
         res.status(400).json({
             mensaje:
-                "El precio y el depósito deben ser números no negativos"
+                "El depósito debe ser un número no negativo"
         });
         return;
     }
 
-    // ------------------------------
     // Validar observación
-    // ------------------------------
-
     if (
         observacion !== null &&
         typeof observacion !== "string"
@@ -188,10 +167,7 @@ export const crear = async (
     let conexion;
 
     try {
-        // ------------------------------
         // Comprobar cliente
-        // ------------------------------
-
         const cliente = await pool.query(
             "SELECT id FROM clientes WHERE id = $1",
             [clienteId]
@@ -209,14 +185,12 @@ export const crear = async (
         try {
             await conexion.query("BEGIN");
 
-            // ------------------------------
             // Bloquear producto
-            // ------------------------------
-
             const productoResultado =
                 await conexion.query(
                     `SELECT
                         id,
+                        nombre,
                         stock,
                         precio_alquiler
                      FROM productos
@@ -247,13 +221,35 @@ export const crear = async (
                 return;
             }
 
-            const stockTotal =
-                Number(producto.stock);
+            const stockTotal = Number(producto.stock);
 
-            // ------------------------------
-            // Calcular unidades reservadas
-            // ------------------------------
+            const precioUnitario =
+                Number(producto.precio_alquiler);
 
+            if (
+                !Number.isFinite(precioUnitario) ||
+                precioUnitario < 0
+            ) {
+                await conexion.query("ROLLBACK");
+
+                res.status(500).json({
+                    mensaje:
+                        "El producto tiene un precio de alquiler inválido"
+                });
+                return;
+            }
+
+            // Calcular total automáticamente.
+            // precio_alquiler en alquileres representa el TOTAL.
+            const precioTotal =
+                Number(
+                    (
+                        precioUnitario *
+                        cantidadSolicitada
+                    ).toFixed(2)
+                );
+
+            // Calcular unidades ocupadas para las fechas
             const reservas =
                 await conexion.query(
                     `SELECT
@@ -283,10 +279,6 @@ export const crear = async (
             const unidadesDisponibles =
                 stockTotal - unidadesReservadas;
 
-            // ------------------------------
-            // Comprobar disponibilidad
-            // ------------------------------
-
             if (
                 cantidadSolicitada >
                 unidadesDisponibles
@@ -307,10 +299,7 @@ export const crear = async (
                 return;
             }
 
-            // ------------------------------
             // Registrar alquiler
-            // ------------------------------
-
             const resultado =
                 await conexion.query(
                     `INSERT INTO alquileres (
@@ -333,7 +322,7 @@ export const crear = async (
                         productoId,
                         fecha_alquiler,
                         fecha_devolucion,
-                        precio,
+                        precioTotal,
                         deposito,
                         observacion,
                         cantidadSolicitada
@@ -345,7 +334,14 @@ export const crear = async (
             res.status(201).json({
                 mensaje:
                     "Alquiler registrado correctamente",
-                alquiler: resultado.rows[0]
+                precio_unitario:
+                    precioUnitario,
+                cantidad:
+                    cantidadSolicitada,
+                precio_total:
+                    precioTotal,
+                alquiler:
+                    resultado.rows[0]
             });
         } catch (error) {
             await conexion.query("ROLLBACK");
@@ -364,7 +360,7 @@ export const crear = async (
 };
 
 // ======================================================
-// ACTUALIZAR ESTADO DEL ALQUILER
+// ACTUALIZAR ESTADO
 // ======================================================
 
 export const actualizarEstado = async (
@@ -381,20 +377,12 @@ export const actualizarEstado = async (
         "cancelado"
     ];
 
-    // ------------------------------
-    // Validar ID
-    // ------------------------------
-
     if (!Number.isInteger(id) || id <= 0) {
         res.status(400).json({
             mensaje: "ID de alquiler inválido"
         });
         return;
     }
-
-    // ------------------------------
-    // Validar estado
-    // ------------------------------
 
     if (
         typeof estado !== "string" ||
@@ -415,10 +403,6 @@ export const actualizarEstado = async (
 
         try {
             await conexion.query("BEGIN");
-
-            // ------------------------------
-            // Obtener y bloquear alquiler
-            // ------------------------------
 
             const alquilerResultado =
                 await conexion.query(
@@ -445,10 +429,6 @@ export const actualizarEstado = async (
             const estadoActual =
                 alquiler.estado;
 
-            // ------------------------------
-            // Mismo estado
-            // ------------------------------
-
             if (estadoActual === estado) {
                 await conexion.query("ROLLBACK");
 
@@ -458,10 +438,6 @@ export const actualizarEstado = async (
                 });
                 return;
             }
-
-            // ------------------------------
-            // Definir transiciones válidas
-            // ------------------------------
 
             const transicionesPermitidas:
                 Record<string, string[]> = {
@@ -497,16 +473,6 @@ export const actualizarEstado = async (
                 return;
             }
 
-            // ------------------------------
-            // Si pasa de reservado a alquilado,
-            // bloquear también el producto.
-            //
-            // No necesitamos volver a sumar
-            // este alquiler como nueva reserva,
-            // porque reservado y alquilado ya
-            // bloquean stock por igual.
-            // ------------------------------
-
             if (
                 estadoActual === "reservado" &&
                 estado === "alquilado"
@@ -534,10 +500,6 @@ export const actualizarEstado = async (
                     return;
                 }
             }
-
-            // ------------------------------
-            // Actualizar estado
-            // ------------------------------
 
             const resultado =
                 await conexion.query(
@@ -590,10 +552,6 @@ export const consultarDisponibilidad = async (
             fecha_fin
         } = req.query;
 
-        // ------------------------------
-        // Validar fechas
-        // ------------------------------
-
         if (
             !fechaValida(fecha_inicio) ||
             !fechaValida(fecha_fin) ||
@@ -611,10 +569,6 @@ export const consultarDisponibilidad = async (
             });
             return;
         }
-
-        // ------------------------------
-        // Consultar productos alquilables
-        // ------------------------------
 
         const resultado =
             await pool.query(
