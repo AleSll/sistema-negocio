@@ -132,7 +132,22 @@ export const crearVenta = async (
             )
         });
     } catch (error) {
+        if (error instanceof Error) {
+            if (error.message === "PRODUCTO_NO_ENCONTRADO") {
+                return res.status(404).json({
+                    mensaje: "Producto no encontrado"
+                });
+            }
+
+            if (error.message === "STOCK_INSUFICIENTE") {
+                return res.status(400).json({
+                    mensaje: "No hay suficiente stock para esta venta"
+                });
+            }
+        }
+
         console.error(error);
+
         return res.status(500).json({
             mensaje: "Error al registrar la venta"
         });
