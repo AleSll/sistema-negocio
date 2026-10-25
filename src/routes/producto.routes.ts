@@ -5,19 +5,80 @@ import {
     buscarProducto,
     registrarProducto,
     modificarProducto,
-    borrarProducto
+    borrarProducto,
+    subirFotoProducto,
+    listarCatalogo
 } from "../controllers/producto.controller";
+
+import {
+    uploadProducto
+} from "../middlewares/uploadProducto";
 
 const router = Router();
 
-router.get("/", listarProductos);
+// ======================================================
+// LISTAR PRODUCTOS
+// ======================================================
 
-router.get("/:id", buscarProducto);
+router.get(
+    "/",
+    listarProductos
+);
 
-router.post("/", registrarProducto);
+// ======================================================
+// CATÁLOGO DE PRODUCTOS
+// IMPORTANTE: debe estar antes de /:id
+// ======================================================
 
-router.put("/:id", modificarProducto);
+router.get(
+    "/catalogo",
+    listarCatalogo
+);
 
-router.delete("/:id", borrarProducto);
+// ======================================================
+// BUSCAR PRODUCTO POR ID
+// ======================================================
+
+router.get(
+    "/:id",
+    buscarProducto
+);
+
+// ======================================================
+// REGISTRAR PRODUCTO
+// ======================================================
+
+router.post(
+    "/",
+    registrarProducto
+);
+
+// ======================================================
+// SUBIR FOTO DE PRODUCTO
+// ======================================================
+
+router.post(
+    "/:id/foto",
+    uploadProducto.single("foto"),
+    subirFotoProducto
+);
+
+// ======================================================
+// MODIFICAR PRODUCTO
+// ======================================================
+
+router.put(
+    "/:id",
+    modificarProducto
+);
+
+// ======================================================
+// ELIMINAR PRODUCTO
+// ======================================================
+
+router.delete(
+    "/:id",
+    borrarProducto
+);
 
 export default router;
